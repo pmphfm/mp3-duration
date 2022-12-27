@@ -11,7 +11,7 @@ pub struct Context<'r, T> {
     pub duration: Duration,
 }
 
-impl<'r, T: Read> Context<'r, T> {
+impl<'r, T: Read + Seek> Context<'r, T> {
     pub fn new(reader: &'r mut T) -> Self {
         Context {
             reader: reader,
@@ -37,19 +37,23 @@ impl<'r, T: Read> Context<'r, T> {
     }
 
     pub fn skip(&mut self, num_bytes: usize) -> Result<(), MP3DurationError> {
-        let num_bytes_skipped =
-            io::copy(&mut self.reader.take(num_bytes as u64), &mut io::sink());
-        match num_bytes_skipped {
-            Err(e) => Err(self.error(e.into())),
-            Ok(n) if n < num_bytes as u64 => {
-                self.reached_eof = true;
-                Err(self.error(ErrorKind::UnexpectedEOF))
-            }
-            _ => {
-                self.bytes_read += num_bytes;
-                Ok(())
-            }
+        let cur_pos = self
+            .reader
+            .seek(std::io::SeekFrom::Current(0))
+            .map_err(|e| self.error(e.into()))?;
+        let end_pos = self
+            .reader
+            .seek(std::io::SeekFrom::End(0))
+            .map_err(|e| self.error(e.into()))?;
+
+        if (cur_pos as usize + num_bytes) > end_pos as usize {
+            return Err(self.error(ErrorKind::UnexpectedEOF));
         }
+
+        self.reader
+            .seek(std::io::SeekFrom::Start(cur_pos + num_bytes as u64))
+            .map_err(|e| self.error(e.into()))
+            .map(|_| ())
     }
 
     pub fn reached_eof(&self) -> bool {

@@ -15,7 +15,7 @@ use crate::context::Context;
 
 pub use crate::error::{ErrorKind, MP3DurationError};
 
-fn get_bitrate<T: Read>(
+fn get_bitrate<T: Read + Seek>(
     context: &Context<T>,
     version: Version,
     layer: Layer,
@@ -32,7 +32,7 @@ fn get_bitrate<T: Read>(
         * BIT_RATES[version as usize][layer as usize][encoded_bitrate as usize])
 }
 
-fn get_sampling_rate<T: Read>(
+fn get_sampling_rate<T: Read + Seek>(
     context: &Context<T>,
     version: Version,
     encoded_sampling_rate: u8,
@@ -45,7 +45,7 @@ fn get_sampling_rate<T: Read>(
     Ok(SAMPLING_RATES[version as usize][encoded_sampling_rate as usize])
 }
 
-fn get_samples_per_frame<T: Read>(
+fn get_samples_per_frame<T: Read + Seek>(
     context: &Context<T>,
     version: Version,
     layer: Layer,
@@ -78,7 +78,7 @@ fn get_side_information_size(version: Version, mode: Mode) -> usize {
 /// ```
 pub fn from_read<T>(reader: &mut T) -> Result<Duration, MP3DurationError>
 where
-    T: Read,
+    T: Read + Seek,
 {
     let mut header_buffer = [0; 4];
 
