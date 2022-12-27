@@ -22,14 +22,14 @@ fn get_bitrate<T: Read>(
     encoded_bitrate: u8,
 ) -> Result<u32, MP3DurationError> {
     if encoded_bitrate >= 15 {
-        return Err(context.error(ErrorKind::InvalidBitrate {
-            bitrate: encoded_bitrate,
-        }));
+        return Err(context
+            .error(ErrorKind::InvalidBitrate { bitrate: encoded_bitrate }));
     }
     if layer == Layer::NotDefined {
         return Err(context.error(ErrorKind::ForbiddenLayer));
     }
-    Ok(1000 * BIT_RATES[version as usize][layer as usize][encoded_bitrate as usize])
+    Ok(1000
+        * BIT_RATES[version as usize][layer as usize][encoded_bitrate as usize])
 }
 
 fn get_sampling_rate<T: Read>(
@@ -136,7 +136,11 @@ where
                 _ => unreachable!(),
             };
 
-            let sampling_rate = get_sampling_rate(&context, version, encoded_sampling_rate as u8)?;
+            let sampling_rate = get_sampling_rate(
+                &context,
+                version,
+                encoded_sampling_rate as u8,
+            )?;
             let num_samples = get_samples_per_frame(&context, version, layer)?;
 
             let xing_offset = get_side_information_size(version, mode);
@@ -162,23 +166,30 @@ where
                         | xing_buffer[11] as u32;
                     let rate = sampling_rate as u64;
                     let billion = 1_000_000_000;
-                    let frames_x_samples = num_frames as u64 * num_samples as u64;
+                    let frames_x_samples =
+                        num_frames as u64 * num_samples as u64;
                     let seconds = frames_x_samples / rate;
-                    let nanoseconds = (billion * frames_x_samples) / rate - billion * seconds;
+                    let nanoseconds =
+                        (billion * frames_x_samples) / rate - billion * seconds;
                     return Ok(Duration::new(seconds, nanoseconds as u32));
                 }
             }
 
-            let bitrate = get_bitrate(&context, version, layer, encoded_bitrate as u8)?;
-            let frame_length = (num_samples / 8 * bitrate / sampling_rate + padding) as usize;
+            let bitrate =
+                get_bitrate(&context, version, layer, encoded_bitrate as u8)?;
+            let frame_length =
+                (num_samples / 8 * bitrate / sampling_rate + padding) as usize;
 
             let bytes_to_next_frame = frame_length
-                .checked_sub(header_buffer.len() + xing_offset + xing_buffer.len())
+                .checked_sub(
+                    header_buffer.len() + xing_offset + xing_buffer.len(),
+                )
                 .ok_or(context.error(ErrorKind::MPEGFrameTooShort))?;
 
             context.skip(bytes_to_next_frame)?;
 
-            let frame_duration = (num_samples as u64 * 1_000_000_000) / (sampling_rate as u64);
+            let frame_duration =
+                (num_samples as u64 * 1_000_000_000) / (sampling_rate as u64);
             context.duration += Duration::new(0, frame_duration as u32);
 
             continue;
@@ -192,11 +203,13 @@ where
             let mut id3v2 = [0; 6]; // 4 bytes already read
             context.read_exact(&mut id3v2)?;
             let flags = id3v2[1];
-            let footer_size: usize = if 0 != (flags & 0b0001_0000) { 10 } else { 0 };
+            let footer_size: usize =
+                if 0 != (flags & 0b0001_0000) { 10 } else { 0 };
             let tag_size: usize = ((id3v2[5] as u32)
                 | ((id3v2[4] as u32) << 7)
                 | ((id3v2[3] as u32) << 14)
-                | ((id3v2[2] as u32) << 21)) as usize;
+                | ((id3v2[2] as u32) << 21))
+                as usize;
             context.skip(tag_size + footer_size)?;
             continue;
         }
